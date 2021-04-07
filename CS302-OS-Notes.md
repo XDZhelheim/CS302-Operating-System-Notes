@@ -389,6 +389,8 @@ PCB 是系统感知进程存在的唯一标志
   * Threads encapsulate **concurrency**: "Active" component
   * Address spaces encapsulate **protection**: "Passive" part
 
+---
+
 ### 4.2 线程的组成
 
 * State shared by all threads in process/address space
@@ -404,6 +406,8 @@ PCB 是系统感知进程存在的唯一标志
   * 回忆计组学的，不多说
 
 ![](D:\TyporaPictures\OS\51.PNG)
+
+---
 
 ### 4.3 线程和进程的区别
 
@@ -421,9 +425,13 @@ PCB 是系统感知进程存在的唯一标志
 | If one process is blocked then it will not effect the execution of other process | Second thread in the same task couldnot run, while one server thread is blocked. |
 | Process has its own Process Control Block, Stack and Address Space. | Thread has Parents' PCB, its own Thread Control Block and Stack and common Address space. |
 
+---
+
 ### 4.4 线程的生命周期 Thread Lifecycle
 
 ![](D:\TyporaPictures\OS\52.PNG)
+
+---
 
 ### 4.5 多线程进程 Multithreaded Process
 
@@ -435,6 +443,8 @@ PCB 是系统感知进程存在的唯一标志
 
 * Switching threads across blocks requires changes to memory and I/O address tables
 
+---
+
 ### 4.6 多线程调度
 
 ![](D:\TyporaPictures\OS\54.PNG)
@@ -443,7 +453,13 @@ PCB 是系统感知进程存在的唯一标志
 
 ![](D:\TyporaPictures\OS\56.PNG)
 
+* 超线程 Hyper-Threading
+
+  超线程(hyper-threading)其实就是**同时多线程(simultaneous multi-theading)**, 是一项允许一个CPU执行多个控制流的技术。它的原理很简单，就是把一颗CPU当成两颗来用，将一颗具有超线程功能的物理CPU变成两颗逻辑CPU，而逻辑CPU对操作系统来说，跟物理CPU并没有什么区别。因此，操作系统会把工作线程分派给这两颗（逻辑）CPU上去执行，让（多个或单个）应用程序的多个线程，能够同时在同一颗CPU上被执行。注意：两颗逻辑CPU共享单颗物理CPU的所有执行资源。因此，我们可以认为，**超线程技术就是对CPU的虚拟化**
+
 ![](D:\TyporaPictures\OS\57.PNG)
+
+---
 
 ### 4.7 Multiprocessing, Multithreading and Multiprogramming
 
@@ -566,6 +582,8 @@ Dispatcher 是一个模块，用来将 CPU 控制交给由 CPU 调度程序选�
 | Time Taken | The time taken by dispatcher is called dispatch latency.     | Time taken by scheduler is usually negligible. Hence we neglect it. |
 | Functions  | Dispatcher is also responsible for: Context Switching, Switch to user mode, Jumping to proper location when process again restarted | The only work of scheduler is selection of processes.        |
 
+---
+
 ### 5.2 调度准则
 
 * CPU 使用率
@@ -591,6 +609,8 @@ Dispatcher 是一个模块，用来将 CPU 控制交给由 CPU 调度程序选�
 * ==Number of Context Switches== (from 课件)
 
   尽可能少做上下文切换
+
+---
 
 ### 5.3 调度算法 Scheduling Algorithm
 
@@ -664,3 +684,619 @@ Dispatcher 是一个模块，用来将 CPU 控制交给由 CPU 调度程序选�
   ![](D:\TyporaPictures\OS\47.PNG)
 
   ![](D:\TyporaPictures\OS\48.PNG)
+
+---
+
+## 第六章 同步 Synchronization
+
+### 6.1 进程间通信 Inter-Process Communication (IPC)
+
+* 匿名管道 Pipe
+
+  * 单向 Unidirectional
+  * 匿名管道只能在祖先相同的进程之间建立
+
+  ![](D:\TyporaPictures\OS\58.PNG)
+
+* 信号 Signal
+
+  * More kernel-level
+  * Limited (SIGKILL, SIGCHLD, ...)
+
+* 例: `ls | less`
+
+  ![](D:\TyporaPictures\OS\59.PNG)
+
+  ![](D:\TyporaPictures\OS\60.PNG)
+  
+* IPC Models
+
+  ![](D:\TyporaPictures\OS\61.PNG)
+
+---
+
+### 6.2 临界区 Critical Section
+
+#### 6.2.1 竞争条件 Race Condition
+
+* 多个进程并发访问和操作同一数据并且执行结果与特定访问顺序有关，称为竞争条件 (Race Condition)
+* Shared Object + Multiple Process + Concurrency
+
+#### 6.2.2 临界区问题 Critical Section Problem
+
+* 临界区 Critical Section
+
+  每个进程有一段代码，进程在执行该段代码时可能修改公共变量、更新一个表、写一个文件等
+
+* 进入区 Entry Section
+
+  进入临界区前，请求许可的代码段
+
+* 退出区 Exit Section
+
+* 剩余区 Remainder Section
+
+![](D:\TyporaPictures\OS\62.PNG)
+
+* 临界区问题 (Critical-Section Problem) 指设计一个协议以便协作进程，使得没有两个进程可以在它们的临界区内同时执行
+* 临界区要尽可能紧凑
+* 一个临界区里可以访问多个 shared object
+* 重点是进入区和退出区的实现
+
+#### 6.2.3 临界区问题的要求
+
+1. 互斥 Mutual Exclusion
+
+   如果一个进程在其临界区内执行，那么其他进程都不能在临界区内执行
+
+2. 进步 Progress
+
+   如果没有进程在临界区内执行，并且有进程需要进入临界区，那么只有那些不在剩余区内的进程可以参加选择，以便确定谁下次进入临界区，而且这种选择不能无限推迟
+
+   <span style='color:blue'>别让执行临界区的进程空着，除非大家都不想进临界区</span>
+
+3. 有限等待 Bounded Waiting
+
+   从一个进程做出进入临界区的请求直到这个请求允许为止，其他进程允许进入其临界区的次数有上限
+
+   <span style='color:blue'>别让一个进程等一辈子</span>
+
+---
+
+### 6.3 临界区问题的解决方案 Solutions for Critical Section Problem
+
+* Lock-based
+  * Spin-based Lock
+    * Basic spinning
+    * Peterson's solution
+  * Sleep-based Lock
+    * POSIX semaphore
+    * `pthread_mutex_lock`
+* Lock-free
+
+#### 6.3.1 硬件同步 (×) Hardware Synchronization
+
+* 禁止中断
+
+![](D:\TyporaPictures\OS\63.PNG)
+
+* 单核
+
+  正确，但是不能接受
+
+  如果有个进程在 CS 里写个死循环就全卡这了
+
+* 多核
+
+  不正确，除非把所有核的中断全都禁止
+
+#### 6.3.2 基本自旋锁 (×) Basic Spin Lock
+
+* 原理
+
+  设置一个公共变量 `turn` 来决定哪个进程可以进 CS
+
+![](D:\TyporaPictures\OS\64.PNG)
+
+* 太浪费 CPU
+
+* 违反 Progress
+
+  多个进程一定是交替执行
+
+  如果一个进程不打算进 CS 但是另一个进程交出了权限，那就要等很长时间 (**no progress**)
+
+  Example: 这种情况下没人在 CS 里。==不能让执行 CS 的进程空着==
+
+  ![](D:\TyporaPictures\OS\65.PNG)
+
+#### 6.3.3 Peterson's Solution
+
+* 在 `turn` 的基础上新加一个布尔数组 `interested`
+
+  * If I don't show interest
+
+    I let you all go
+
+  * If we both show interest
+
+    Take turns
+
+```c
+int turn;
+int interested[2] = {false, false};
+
+void lock(int process) {
+    int other = 1 - process;
+    interested[process] = true;
+    turn = other;
+    while (turn == other && interested[other]); // busy waiting
+}
+
+void unlock(int process) {
+    interested[process] = false;
+}
+```
+
+* 会产生优先级翻转问题 (Priority Invasion)
+
+  优先级 $A<B<C$
+
+  1. $A$ 获得锁, $C$ 来了, $C$ 申请锁
+  2. 按理来说 $C$ 应该抢占 $A$, 但是锁在 $A$ 手里, $C$ 就只能等待
+  3. $B$ 不要锁，所以 $B$ 可以被调度上去
+  4. 明明 $B$ 优先级低，却比 $C$ 先执行
+
+* 为什么 `turn=other` 不是 `turn=process`
+
+  我们假设是这样
+
+  ```c
+  turn=自己;
+  while (turn==自己 && interested[别人]);
+  ```
+
+  如果现在有三个进程 $P_1,P_2,P_3$
+
+  1. 我们脸比较黑，这三个进程经过调度，都该执行 `turn=自己` 这一行
+  2. 那么最终 `turn` 是几，就取决于调度器了
+  3. 假设调度器就是按 $P_1,P_2,P_3$ 的顺序调度的，那么最后 `turn=3`
+  4. 现在我们检查 `while`  的条件
+     * 对于 $P_1$, `turn=3`, 前半句不成立, 不需要 wait
+     * 对于 $P_2$, `turn=3`, 前半句不成立, 不需要 wait
+     * 对于 $P_3$, 条件成立, 需要 wait
+  5. 那么现在 $P_1,P_2$ 都被许可进入 CS，违反了**互斥**原则
+
+  
+
+  正确是这样：
+
+  ```
+  turn=别人;
+  while (turn==别人们 && interested[别人们]);
+  // while ((turn==x || turn==y) && (interested[x] || interested[y]))
+  // while (turn!=自己 && interested[别人们])
+  ```
+
+  还是这个例子，我们假设 `turn` 的赋值是 1 给 2，2 给 3，3 给 1
+
+  1. 还是都执行到 `turn=别人` 这一行，还是按 123 的顺序调度的
+  2. 那最终 `turn=1`
+  3. 检查 `while`  的条件，只有 $P_1$ 可以进 CS
+
+#### 6.3.4 信号量 Semaphore
+
+* 信号量是一个 Structure
+
+  * 一个 `int`，表示剩余多少资源可用
+  * 一个等待队列
+
+  ```c
+  typedef struct {
+      int value;
+      struct process *list;
+  } semaphore;
+  ```
+
+* Wait (P 操作)
+
+  ```c
+  wait(semaphore *s) {
+      s->value--;
+      if (s->value<0) {
+          add this process to s->list;
+          block();
+      }
+  }
+  ```
+
+* Post (V 操作)
+
+  ```c
+  post(semaphore *s) {
+      s->value++;
+      if (s->value<=0){
+          remove a process p from s->list;
+          wakeup(p);
+      }
+  }
+  ```
+  
+* 分类
+
+  * 二进制信号量 Binary Semaphore
+
+    只能 0 或 1
+
+  * 计数信号量 Counting Semaphore
+
+    可以 > 1
+
+![](D:\TyporaPictures\OS\67.PNG)
+
+![](D:\TyporaPictures\OS\66.PNG)
+
+---
+
+### 6.4 经典同步问题
+
+#### 6.4.1 有界缓冲问题 Bounded-Buffer Problem
+
+* 又称生产者-消费者问题 (Producer-Consumer Problem)
+
+* 组成
+
+  1. Bounded Buffer
+     * Shared object
+     * Limited size
+     * Queue
+  2. Producer Process
+     * Produce a unit of data and writes that piece of data to the tail of the buffer at one time
+  3. Consumer Process
+     * Remove a unit of data from the head of the buffer at one time
+
+* 要求
+
+  1. Producer
+
+     * 当 producer 向 buffer 里放入数据，但是 buffer 已经满的时候，他需要 wait
+     * 放入数据后，通知 consumer (wake up)
+  2. Consumer
+     * 当 consumer 要消费数据，但是 buffer 是空的，他需要 wait
+     * 消费数据之后，通知 producer (wake up)
+  
+* 例子
+
+  ![](D:\TyporaPictures\OS\68.PNG)
+
+* Semaphore 实现
+
+  ```c
+  semaphore mutex=1;
+  semaphore avail=N;
+  semaphore fill=0;
+  
+  void producer() {
+      int item;
+      
+      while (true) {
+          item=produce_item();
+          
+          wait(&avail);
+          wait(&mutex);
+          
+          insert_item(item);
+          
+          post(&mutex);
+      	post(&fill);        
+      }
+  }
+  
+  void consumer() {
+      int item;
+      
+      while (true){
+          wait(&fill);
+          wait(&mutex);
+          
+          item=remove_item();
+          
+          post(&mutex);
+          post(&avail);
+      }
+  }
+  ```
+
+#### 6.4.2 读者-作者问题 Reader-Writer Problem
+
+* 要求
+  * 任何数量的 reader 都可以同时 read
+  * 同时只能有一个 writer 写
+  * 如果有 writer 在写，那么所有 reader 都不能读
+
+#### 6.4.3 哲学家就餐问题 Dining-Philosophers Problem
+
+* 问题描述
+
+  * 有 5 个哲学家，5 根筷子，1 盘面条
+
+  ![](D:\TyporaPictures\OS\69.png)
+
+  * 每个哲学家有两个可能的动作
+    * Think
+    * Eat
+  * 如果一个哲学家要吃面条，他必须同时获得左右两根筷子
+  * 拿起来的筷子不会被别人抢
+
+* 要求
+
+  设计一个 Protocol，保证所有哲学家
+
+  * 不会饿死
+  * 不会死锁
+
+* 解决方案设计
+
+  * 如果一个哲学家想吃面条，那么他先问左右
+  * 如果左右都不在吃，那么他拿两根筷子吃
+  * 如果左右有人在吃，他就饿着等着，直到别人吃完了通知他
+  * 吃完之后，他放下筷子并且通知左右他吃完了
+
+  ![](D:\TyporaPictures\OS\70.PNG)
+
+  ![](D:\TyporaPictures\OS\71.PNG)
+
+  ![](D:\TyporaPictures\OS\72.PNG)
+
+  * Finish Eating
+
+  ![](D:\TyporaPictures\OS\73.PNG)
+
+---
+
+## 第七章 死锁 Deadlock
+
+### 7.1 死锁的概念
+
+* 在正常操作模式下，进程只能按如下顺序使用资源:
+
+  1. 申请
+
+     进程请求资源。如果进程不能立即被允许，那么它应该等待，直到获取该资源
+
+  2. 使用
+
+     进程对资源进行操作
+
+  3. 释放
+
+     进程释放资源
+
+* 死锁 Deadlock
+
+  Deadlock is a situation where a set of processes are blocked because each process is holding a resource and waiting for another resource acquired by some other process.
+
+  ![](D:\TyporaPictures\OS\74.PNG)
+
+* 饥饿 Starvation
+
+  Indefinite Blocking
+
+  A condition in which a process is indefinitely delayed because other processes are always given preference.
+
+  Starvation is the problem that occurs when high priority processes keep executing and low priority processes get blocked for indefinite time.
+
+  ==Deadlock 一定会造成 starvation==
+
+---
+
+### 7.2 死锁的特征
+
+#### 7.2.1 死锁的必要条件
+
+1. 互斥 Mutual Exclusion
+
+   Only one thread at a time can use a resource.
+
+2. 占有并等待 Hold and Wait
+
+   一个进程应占有至少一个资源并等待另一个资源，而该资源为其他进程所占有
+
+3. 非抢占 No Preemption
+
+   资源不能被抢占，即资源只能被进程在完成任务后自愿释放
+
+4. 循环等待 Circular Wait
+
+   有一组等待进程 $\{P_0,P_1, P_2,\dots,P_n\}$
+
+   * $P_0$ 等待的资源被 $P_1$ 占有
+   * $P_1$ 等待的资源被 $P_2$ 占有
+   * ...
+   * $P_n$ 等待的资源被 $P_0$ 占有
+
+注意是必要条件，即使这些条件都满足也不一定死锁，还需要运气比较背
+
+#### 7.2.2 资源分配图 Resource-Allocation Graph
+
+![](D:\TyporaPictures\OS\75.PNG)
+
+* 圆表示进程
+
+* 矩形表示资源
+
+* 矩形内的点表示资源实例
+
+* 申请边 Request Edge
+
+  进程指向资源的边
+
+* 分配边 Assignment Edge
+
+  资源指向进程的边
+
+
+
+* 如果分配图没有环，那么系统一定没有死锁；如果有环，那么可能存在死锁
+
+* 死锁的例子
+
+  ![](D:\TyporaPictures\OS\76.PNG)
+
+* 有环没死锁的例子
+
+  让 $P_2, P_4$ 先执行完
+
+  ![](D:\TyporaPictures\OS\77.PNG)
+
+---
+
+### 7.3 死锁的处理方法
+
+* 通过协议来预防或避免死锁，确保系统不会进入死锁状态
+
+* 允许系统进入死锁状态，然后检测并恢复
+
+* 忽视，认为死锁不可能在系统内发生
+
+  这种方案被 Linux, Windows 等大多数 OS 采用
+
+  就算出现了死锁，OS 也不管
+
+---
+
+### 7.4 死锁检测 Deadlock Detection
+
+#### 7.4.1 死锁检测算法
+
+[xxx] 表示数组
+
+* \[FreeResources\]: current free resources each type
+* \[Request~X~]: current requests from process X
+* \[Alloc~X~]: current resources held by process X
+
+```
+[Avail] = [FreeResources]
+Add all nodes to UNFINISHED
+
+do {
+    done = true
+    Foreach node in UNFINISHED {
+        if ([Request_node] <= [Avail]) {
+            remove node from UNFINISHED
+            [Avail] = [Avail] + [Alloc_node]
+            done = false
+        }
+    }
+} until(done)
+```
+
+#### 7.4.2 死锁恢复
+
+当检测到死锁后: 
+
+* 进程终止
+
+  Terminate thread, force it to give up resources
+
+* 资源抢占
+
+  Preempt resources without killing off process
+
+* 回滚
+
+  Roll back actions of deadlocked threads
+
+* Many operating systems use other options
+
+---
+
+### 7.5 死锁预防 Deadlock Prevention
+
+核心：打破四个必要条件
+
+1. 互斥
+
+   * 大家都用只读文件
+   * 给足够多的资源
+
+2. 持有且等待
+
+   * 每个进程在执行前申请并获得所有资源
+   * 进程仅在没有资源时才申请资源
+
+3. 无抢占
+
+   * 如果一个进程持有资源并申请一个不能被立即分配的资源，那么它现在分配的资源都可以被抢占
+
+     相当于把它现有的资源都释放了
+
+4. 循环等待
+
+   * 给所有进程一个指定的顺序来申请资源
+
+---
+
+### 7.6 死锁避免 Deadlock Avoidance
+
+#### 7.6.1 安全状态
+
+* 如果系统能按一定顺序为每个进程分配资源（不超过其最大需求），可以避免死锁，那么系统的状态就是安全的 (safe)
+* 只有存在一个安全序列 (safe sequence)，系统才处于安全状态
+* 如果没有这样的序列存在，那么系统状态就是非安全 (unsafe)
+* 非安全状态只是可能会导致死锁，不是一定
+
+#### 7.6.2 资源分配图算法
+
+![](D:\TyporaPictures\OS\78.PNG)
+
+* 需求边 Claim Edge
+
+  进程指向资源，虚线
+
+  进程 $P_i$ 可能在将来申请某个资源 $R_j$
+
+* 只有在将申请边变成分配边 (反向实线箭头) 并且不会导致资源分配图形成环时，才能允许申请
+
+* 时间复杂度
+
+  $O(n^2)$, $n$ 为进程数量
+
+#### 7.6.3 银行家算法 Banker's Algorithm
+
+$n$ 个进程, $m$ 种资源
+
+* $Available$: 行向量，表示每种资源的可用实例数量
+* $Max$: $n\times m$ 矩阵，每个进程的最大需求
+* $Allocation$: $n\times m$ 矩阵，每个进程已经分配的实例数量
+* $Need = Max - Allocation$，还缺多少实例才能完事
+
+```
+Add all nodes to UNFINISHED
+
+do {
+    done = true
+    Foreach node in UNFINISHED {
+        if ([Max_node] - [Alloc_node] <= [Avail]) {
+            remove node from UNFINISHED
+            [Avail] = [Avail] + [Alloc_node]
+            done = false
+        }
+    }
+} until(done)
+```
+
+* 例: 可以按 0213 或 0231 的顺序执行完
+
+  ![](D:\TyporaPictures\OS\79.PNG)
+
+* 现在有个新的 $Request$，比如 $P_0\ (1, 3, 1, 0)$
+
+  1. 检查 $Request_0 < Available$
+  2. 检查 $Allocation_0 + Request_0 < Max_0$
+  3. 假设把资源分配给 $P_0$
+     * 如果分配之后还是 safe（能找到安全序列），那就真的分配给它
+     * 如果分配之后 unsafe，拒绝请求
+
+---
+
