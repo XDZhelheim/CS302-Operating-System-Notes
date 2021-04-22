@@ -317,8 +317,9 @@ PCB 是系统感知进程存在的唯一标志
 
   * 父进程没有调用 `wait()` 就终止，子进程变成孤儿进程
   * Linux & UNIX: 将 `init` 进程作为孤儿进程的父进程 (Re-parent)
-  * `init` 进程定期调用 `wait()` 以便收集任何孤儿进程的退出状态，并释放孤儿进程标识符和进程表条目
-
+  * 这个操作在 `exit()` 里完成，见下图
+* `init` 进程定期调用 `wait()` 以便收集任何孤儿进程的退出状态，并释放孤儿进程标识符和进程表条目
+  
   ![](D:\TyporaPictures\OS\28.PNG)
 
 #### 3.2.7 进程生命周期 Process Lifecycle
@@ -398,7 +399,7 @@ PCB 是系统感知进程存在的唯一标志
   * I/O state (file descriptors, network connections, etc)
 * State "private" to each thread
   * Kept in TCB (Thread Control Block)
-  * CPU registers (including PC)
+  * CPU registers (==including PC==)
   * Execution stack
 * 栈
   * Parameters, temporary variables
@@ -491,6 +492,13 @@ PCB 是系统感知进程存在的唯一标志
 * 当进行上下文切换时，内核会将旧进程的状态保存在其 **PCB** 中，然后加载经调度而要执行的新进程的上下文
 * 上下文切换是纯粹的时间开销 (Overhead)，因为 CPU 在此期间没有做任何有用工作
 * 上下文切换非常耗时
+* 什么时候 Context Switch
+  * Get blocked，比如调用 `wait(), sleep()` 等
+  * ==System Call==
+  * A signal arrives
+  * An interrupt arrives
+  * 时间片用完
+  * 被抢占
 
 ![](D:\TyporaPictures\OS\37.png)
 
@@ -623,6 +631,7 @@ Dispatcher 是一个模块，用来将 CPU 控制交给由 CPU 调度程序选�
 * 选择最短 CPU 执行时间的进程
 * 相同，可以使用 FCFS 规则选择
 * 又称最短下次 CPU执行 (Shortest-Next-CPU-Burst) 算法
+* 可能造成 starvation
 
 ##### 5.3.2.1 非抢占 (Non-Preemptive) SJF
 
@@ -649,6 +658,10 @@ Dispatcher 是一个模块，用来将 CPU 控制交给由 CPU 调度程序选�
 * 如果所有进程都用完了时间片，它们的时间片同时被 recharge 到初始值
 
 * 就绪队列为循环队列，进程被依次执行
+
+  * 刚执行完的进队尾
+  * 新来的进队尾
+  * 新来的进程不会触发新的 Schedule，就按队列顺序来
 
 ![](D:\TyporaPictures\OS\44.PNG)
 
@@ -712,6 +725,8 @@ Dispatcher 是一个模块，用来将 CPU 控制交给由 CPU 调度程序选�
 * IPC Models
 
   ![](D:\TyporaPictures\OS\61.PNG)
+  
+* User space 里的所有东西都不能 share，所以 pipe 之类的都在 kernel 里
 
 ---
 
@@ -1299,4 +1314,330 @@ do {
      * 如果分配之后 unsafe，拒绝请求
 
 ---
+
+## 第八章 内存管理策略
+
+### 8.1 背景
+
+一个内存，多个进程，怎么管理
+
+#### 8.1.1 Aspects of Memory Multiplexing
+
+* Protection
+
+  Prevent access to private memory of other processes
+
+* Controlled Overlap
+
+  Sometimes we want to share memory across processes
+
+* Translation
+
+  Ability to translate accesses from one address space (virtual) to a different one (physical)
+
+#### 8.2.2 地址绑定 Address Binding
+
+源程序中的地址通常是用符号表示 (如变量 `count`)。编译器通常将这些符号地址绑定 (bind) 到可重定位的地址 (如“从本模块开始的第 14 字节”)。链接程序或加载程序再将这些可重定位的地址绑定到绝对地址 (如 74014)。每次绑定都是一个从一个地址空间到另一个地址空间的映射。
+
+![](D:\TyporaPictures\OS\80.png)
+
+通常，指令和数据绑定到存储器地址可以在任何一步进行:
+
+* 编译时 Compile Time
+
+  如果在编译时就已经知道进程将在内存中的驻留地址，那么就可以生成绝对代码 (Absolute Code)
+
+  例: MS-DOS 的 .COM 格式程序
+
+* 加载时 Load Time
+
+  如果在编译时并不知道进程将驻留在何处，那么编译器就应生成可重定位代码 (Relocatable Code)。对这种情况，最后绑定会延迟到加载时进行
+
+* 执行时 Runtime time
+
+  如果进程在执行时可以从一个内存段移到另一个内存段，那么绑定应延迟到执行时才进行
+
+  大多数通用 OS 采用
+
+#### 8.2.3 逻辑地址空间与物理地址空间
+
+* 逻辑地址 Logical Address = 虚拟地址 Virtual Address
+
+  CPU 生成的地址
+
+* 物理地址 Physical Address
+
+  真正的内存地址，加载到内存地址寄存器 (Memory-Address Register) 的地址
+
+* 编译时和加载时的地址绑定会生成相同的逻辑地址和物理地址
+
+* 执行时的绑定生成不同的逻辑地址和物理地址
+
+* 内存管理单元 MMU
+
+  从虚拟地址到物理地址的运行时映射是由**内存管理单元 (Memory Management Unit)** 的硬件设备来完成 (包括查页表之类的都是 MMU 干的)
+
+  大多数 on-chip
+
+![](D:\TyporaPictures\OS\85.png)
+
+#### 8.2.4 动态加载 Dynamic Loading
+
+* 一个进程的整个程序和数据如果都必须处于物理内存中，则进程的大小受物理内存大小的限制
+* 为了获得更好的内存空间使用率，使用动态加载（Dynamic Loading），即一个程序只有在调用时才被加载
+
+#### 8.2.5 动态链接与共享库
+
+* 动态链接的概念与动态加载相似。只是这里不是将加载延迟到运行时，而是将链接延迟到运行时。这一特点通常用于系统库，如语言子程序库。没有这一点，系统上的所有程序都需要一份语言库的副本，这一需求浪费了磁盘空间和内存空间。
+
+* 存根 Stub
+
+  如果有动态链接，二进制镜像中每个库程序的应用都有一个存根（stub）。存根是一小段代码，用以指出如何定位适当的内存驻留的库程序，或如果该程序不在内存中应如何安装入库。不管怎样，存根会用子程序地址来代替自己，并开始执行子程序。因此，下次再执行该子程序代码时，就可以直接进行，而不会因动态链接产生任何开销。采用这种方案，使用语言库的所有进程只需要一个库代码副本就可以了。
+
+* 举例来说，你在程序里调用了 STL 里的 Map，如果没有动态链接，就相当于你把 STL 里 Map 的源文件复制一份到了你的项目里。在动态链接下，不管多少程序调用，都只会调用那一份代码。
+
+* 动态连接也可用于库更新。一个库可以被新的版本所替代，且使用该库的所有程序会自动使用新的版本。没有动态链接，所有这些程序必须重新链接以便访问。
+
+---
+
+### 8.2 交换 Swap
+
+Refer to 进程调度 5.1.3 中期调度程序
+
+进程需要在内存中以便执行。进程也可以暂时从内存中交换 (swap) 到备份存储 (backing store，一般是磁盘) 上，当需要再次执行时在调回到内存中。
+
+* 换入 Swap In
+* 换出 Swap Out
+
+---
+
+### 8.3 连续内存分配 Contiguous Memory Allocation
+
+#### 8.3.1 Uniprogramming
+
+* 同时只能有一个程序运行
+* Application always runs at same place in physical memory since only one application at a time
+* Application can access any physical address
+
+![](D:\TyporaPictures\OS\81.png)
+
+#### 8.3.2 内存保护 Protection
+
+* 重定位寄存器 Relocation Register
+* 界限寄存器 Limit Register: 里面是虚拟地址的 bound
+
+![](D:\TyporaPictures\OS\83.jpg)
+
+* 保护
+
+![](D:\TyporaPictures\OS\82.png)
+
+#### 8.3.3 多分区方法 Multiple-Partition Method
+
+* 将内存分为多个分区，每个分区分给一个进程
+
+* 固定分区 Fixed-size Partition
+
+  Each process has same memory size
+
+  ![](D:\TyporaPictures\OS\83.png)
+
+* 可变分区 Variable Partition
+
+  ![](D:\TyporaPictures\OS\84.png)
+
+  * 每一块可用的内存称为一个孔 (hole)
+  * 可用的内存块为分散在内存里不同大小的孔的集合
+
+* 动态存储分配问题 Dynamic Storage-Alloction Problem
+
+  * 当新进程需要内存时，系统为该进程查找足够大的孔
+  * 如果孔太大，那么就分为两块
+    * 分配给新进程
+    * 合并回孔集合
+  * 进程终止时，释放内存，该内存合并回孔的集合
+  * 如果新孔与其他孔相邻，则合并成大孔
+  * 系统检查是否有等待内存空间的进程，以及新合并的孔能否满足等待进程等
+
+* 从可用孔中选择一个分配的常用方法
+
+  * 首次适应 First-fit
+
+    分配首个足够大的孔
+
+  * 最优适应 Best-fit
+
+    分配最小的足够大的孔
+
+  * 最差适应 Worst-fit
+
+    分配最大的足够大的孔
+
+#### 8.3.3 碎片 Fragmentation
+
+![](D:\TyporaPictures\OS\86.png)
+
+* 内碎片 Internal Fragmentation
+
+  分配给进程的内存比所需的大，多余的那一部分就是内碎片
+
+* 外碎片 External Fragmentation
+
+  两个进程之间的空闲孔，而且这个孔太小，没法分配给别的进程
+
+* 紧缩 Compaction
+
+  移动已分配的内存，使得所有外碎片合并成一大块
+
+  只有在运行时绑定才可以使用紧缩，因为要重写基地址寄存器和界限寄存器
+
+  * 编译时：不可能，因为直接就绑定绝对地址
+  * 加载时：但是目前进程已经加载到内存里了，这时候也已经是不可变地址了
+
+---
+
+### 8.4 分段 Segmentation
+
+![](D:\TyporaPictures\OS\87.png)
+
+* 逻辑地址空间由一组段构成，每个段有名称和长度
+
+* 地址指定了段名称和段内偏移 (Offset)
+
+* 逻辑地址由有序对组成 <段号，偏移>
+
+* 段表 Segment Table
+
+  在 CPU 里
+
+  段表的每个条目包含:
+
+  * 段基地址 Segment Base
+  * 段界限 Segment Limit
+  * Valid bit
+
+![](D:\TyporaPictures\OS\88.png)
+
+![](D:\TyporaPictures\OS\89.png)
+
+![](D:\TyporaPictures\OS\92.png)
+
+* 图上没有 Check Valid 的内容
+
+* 例 1:
+
+  ![](D:\TyporaPictures\OS\90.png)
+
+* 例 2:
+
+  ![](D:\TyporaPictures\OS\91.png)
+
+  不多说，全是计组学过的内容
+
+  注意第一条指令 load address 取的是虚拟地址 0x4050, 物理地址只有真正访问内存的时候才翻译过去
+
+* 分段的特点
+
+  1. Virtual address space has holes
+     * Segmentation is efficient for sparse address spaces
+     * A correct program should never address gaps
+  2. When it is OK to address outside valid range?
+     * This is how the stack and heap are allowed to grow
+     * For instance, stack takes fault, system automatically increases size of stack
+  3. Need protection mode in segment table
+     * For example, code segment would be read only
+     * Data and stack would be read write (stores allowed)
+     * Shared segment could be read only or read write
+  4. Fragmentation
+
+* What must be saved/restored on context switch?
+
+  * Segment table that stored in CPU
+  * Might store all of processes memory onto disk when switched (8.2 swap)
+
+---
+
+### 8.5 分页 Paging
+
+* 将物理内存分为固定大小的块，称为帧或页帧 (frame)
+* 将逻辑内存分为同样大小的块，称为页或页面 (page)
+* 逻辑地址空间完全独立于物理地址空间，例如一个进程有 64 位逻辑地址空间，而系统的物理内存可以小于 $2^{64}$ 字节
+
+#### 8.5.1 页表 Page Table
+
+* 每个逻辑地址分为两部分
+  * 页码 Page Number: 页表的索引
+  * 页偏移 Page Offset
+* 与分段对比
+  * 分页是先决定一页多大才知道分几页，比如一页 4 KiB, 那么 offset 是 12 位，所以 page number 是 32-12=20 位
+  * 分段是先决定分几个段才知道一个段多大，比如分 4 个，那么 segment number 是 2 位，所以 offset 是 32-2=30 位
+* 页表条目
+  * 物理内存基地址
+  * Valid bit, read, write ...
+* 在内存里
+
+![](D:\TyporaPictures\OS\93.png)
+
+![](D:\TyporaPictures\OS\96.png)
+
+* 下图来自计组课件（逻辑地址空间和物理地址空间不必非得一样大）
+
+![](D:\TyporaPictures\OS\94.png)
+
+![](D:\TyporaPictures\OS\95.png)
+
+* 分页可以消除外碎片
+* 一页的大小需要 trade off
+  * 太大，内碎片
+  * 太小，页表条目太多，导致页表占用空间太大，页表也是在内存里的
+* What needs to be switched on a context switch?
+  Page table pointer and limit
+
+#### 8.5.2 共享页
+
+![](D:\TyporaPictures\OS\97.png)
+
+#### 8.5.3 分层分页 Multilevel Paging
+
+* 向前映射页表 Forward-Mapped Page Table
+
+![](D:\TyporaPictures\OS\98.png)
+
+* Page Table Base Register (PTBR): 存的是页表的基地址
+
+1. Reference to PTE in level 1 page table = PTBR value + Level 1 offset present in virtual address.
+2. Reference to PTE in level 2 page table = Base address (present in Level 1 PTE) + Level 2 offset (present in VA). 
+3. Reference to PTE in level 3 page table= Base address (present in Level 2 PTE) + Level 3 offset (present in VA). 
+4. Actual page frame address = PTE (present in level 3).
+
+* 注意这里，比如 level 1 offset 10 位，那么二级页表最多可能有 $2^{10}=1024$ 个
+
+  当然大部分情况都是 < 1024 的，这就是多级页表的作用，解决了之前单个页表里一大堆 null 没用还占地方的问题
+
+![](D:\TyporaPictures\OS\99.png)
+
+#### 8.5.4 分段+分页
+
+* Tree of tables
+  * Lowest level page table: memory still allocated with bitmap
+  * Higher levels often segmented
+
+![](D:\TyporaPictures\OS\100.png)
+
+* What must be saved/restored on context switch?
+  * Contents of top level segment registers (for this example)
+  * Pointer to top level table (page table)
+* 共享
+
+![](D:\TyporaPictures\OS\101.png)
+
+---
+
+
+
+
+
+
+
+
 
