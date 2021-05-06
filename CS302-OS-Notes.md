@@ -1587,11 +1587,20 @@ Refer to 进程调度 5.1.3 中期调度程序
 ![](D:\TyporaPictures\OS\95.png)
 
 * 分页可以消除外碎片
+
 * 一页的大小需要 trade off
   * 太大，内碎片
   * 太小，页表条目太多，导致页表占用空间太大，页表也是在内存里的
+  
 * What needs to be switched on a context switch?
   Page table pointer and limit
+  
+* Core Map
+
+  Do we need a reverse mapping (i.e. physical page -> virtual page)?
+
+  * Yes. Clock algorithm runs through page frames. If sharing, then multiple virtual pages per physical page
+  * Can't push page out to disk without invalidating all PTEs
 
 #### 8.5.2 共享页
 
@@ -1633,11 +1642,488 @@ Refer to 进程调度 5.1.3 中期调度程序
 
 ---
 
+## 第九章 虚拟内存管理
 
+### 9.1 缓存 Cache
 
+* Cache
 
+  A repository for copies that can be accessed more quickly than the original
 
+* 平均访问时间 Average Access time
+  $$
+  Hit\ Rate \times Hit\ Time + Miss\ Rate \times Miss\ Time
+  $$
+  注意这里跟计组学的不一样，访问 cache 然后没找到的时间没算进去
 
+  计组: $Hit\ Time+Miss\ Rate \times Miss\ Time$
 
+* 时间局部性 Temporal Locality
 
+  If you used some data recently, you will likely use it again
+
+  Keep recently accessed data items closer to processor
+
+* 空间局部性 Spatial Locality
+
+  If you used some data recently, you will likely access its neighbors
+
+  Move contiguous blocks to the upper levels
+
+* 其他内容详见计组课件
+
+* Cache 的应用
+
+  * TLB
+  * 虚拟内存
+  * 文件系统
+  * DNS
+  * Web Proxy
+
+---
+
+### 9.2 转换表缓冲区 Transition Look-aside Buffer (TLB)
+
+![](D:\TyporaPictures\OS\102.png)
+
+* Page Table Entry (PTE) 的 cache
+* 在 CPU 里
+* TLB Miss 的处理 (以下来自计组课件 永远滴神)
+  * If page is in memory
+    * Load the PTE from memory and retry
+    * Could be handled in hardware
+      * Can get complex for more complicated page table structures
+    * Or in software
+      * Raise a special exception, with optimized handler
+  * If page is not in memory (page fault)
+    * OS handles fetching the page and updating the page table
+    * Restart the faulting instruction
+* TLB 也可以多级 (L1, L2, ...)
+
+![](D:\TyporaPictures\OS\103.png)
+
+* TLB + Cache
+
+  * 注意：cache（就是 CPU 里的 L1, L2, ... 那些）用的是物理地址
+
+  ![](D:\TyporaPictures\OS\104.jpg)
+
+* Does software loaded TLB need use bit?
+
+  * Hardware sets use bit in TLB; when TLB entry is replaced, software copies use bit back to page table
+  * Software manages TLB entries as FIFO list; everything not in TLB is Second Chance list, managed as strict LRU
+
+---
+
+### 9.3 请求调页 Demand Paging
+
+#### 9.3.1 基本概念
+
+* 定义
+
+  Keep all pages of the frames in the secondary memory (外存) until they are required.
+
+  A page is delivered into the memory on demand i.e., only when a reference is made to a location on that page.
+
+* 为什么要请求调页
+  * 一个程序运行需要的内存比实际内存大，但是这个程序不是同时需要申请这么多内存
+  * 程序所使用的虚拟地址也可能超出物理地址 (比如 64 位系统的虚拟地址空间相当大)
+  
+* 内存相当于外存的 cache
+
+  * Block size: 1 page
+  * Organization: fully associative
+  * How to find a page: first TLB, then page table traversal
+  * How to handle write: write-back, need dirty bit
+
+![](D:\TyporaPictures\OS\104.png)
+
+#### 9.3.2 请求调页的性能
+
+* 缺页错误 Page Fault
+
+  对标记为无效 (valid bit) 的页面访问
+
+* 缺页错误的处理
+
+  * 概括
+    * 处理缺页错误中断
+    * 读入页面
+    * 重启进程
+  * 具体
+    1. 陷入操作系统 (trap)
+    2. 保存寄存器和进程状态
+    3. 确定中断是否为缺页错误
+    4. 检查页面是否合法，并确定页面的磁盘位置
+    5. 从磁盘读入页面到空闲帧
+       * 在该磁盘队列中等待 (IO 队列)，直到读请求被处理
+       * 等待磁盘的寻道或延迟时间
+       * 开始传输磁盘页面到空闲帧
+    6. 在等待时，将 CPU 分配给其他用户
+    7. 收到来自 IO 子系统的中断 (IO 完成)
+    8. 保存其他用户的寄存器和进程状态
+    9. 确认中断是来自上述磁盘的
+    10. 修正页表和其他表，以表示所需页面现在已在内存中
+    11. 等待 CPU 再次分配给本进程
+    12. 恢复用户寄存器、进程状态和新页表，再重新执行中断的指令
+  * 课件
+    * Choose an old page to replace
+    * If old page modified (`D=1`), write contents back to disk
+    * Change its PTE and any cached TLB to be invalid
+    * Load new page into memory from disk
+    * Update page table entry, invalidate TLB for new entry
+    * Continue thread from original faulting location
+
+* OS 如何拿到一个空闲帧
+
+  * Keeps a free list
+  * Unix runs a "reaper" if memory gets too full
+    * Schedule dirty pages to be written back on disk
+    * Zero (clean) pages which have not been accessed in a while
+  * As a last resort, evict a dirty page first
+
+* 有效访问时间 Effective Access Time
+
+  $p$: 缺页错误率 Page Fault Rate
+
+  $ma$: 内存访问时间
+  $$
+  EAT=ma+p\times Page\ Fault\ Time
+  $$
+  
+  注意这里课件和书上不一样，书上是 $(1-p)ma$，一个破公式就不能统一一下？？
+
+---
+
+### 9.4 页面置换 Page Replacement
+
+#### 9.4.1 Cache Miss 的分类
+
+* Compulsory Miss (Cold Start Miss)
+  * Pages that have never been paged into memory before
+  * How might we remove these misses?
+    * Prefetching: loading them into memory before needed
+    * Need to predict future somehow!
+* Capacity Miss
+  * Not enough memory. Must somehow increase available memory size
+    * Increase amount of DRAM
+    * If multiple processes in memory: adjust percentage of memory allocated to each one
+* Conflict Miss
+  * Happen in direct mapped cache and set-associative cache
+  * 刚把他踢走，接着又要访问他
+  * Technically, conflict misses don't exist in virtual memory, since it is a "fully associative" cache
+* Policy Miss
+  * Caused when pages were in memory, but kicked out prematurely because of the replacement policy
+
+#### 9.4.2 FIFO 页面置换
+
+* Throw out oldest page. Be fair let every page live in memory for sameamount of time.
+
+* Bad: may throw out heavily used pages instead of infrequently used
+
+* 理论实现：队列
+
+  ```c++
+  class FIFOCache : public Cache {
+      private:
+          list<int> lst;
+  
+      public:
+          FIFOCache(int size) : Cache(size) {}
+  
+          bool full() override {
+              return lst.size()==this->size;
+          }
+  
+          bool contains(int x) override {
+              return find(lst.begin(), lst.end(), x)!=lst.end();
+          }
+  
+          void insert(int x) override {
+              if (this->contains(x)) {
+                  this->hitCount++;
+              }
+              else {
+                  if (this->full())
+                      lst.pop_front();
+                  lst.push_back(x);
+              }
+          }
+  };
+  ```
+
+* 例: 3 个 frame，4 个 page，访问顺序: `A B C A B D A D B C B`
+
+  ![](D:\TyporaPictures\OS\105.png)
+
+  Page Fault: 7
+
+* Bélády 异常 (Bélády's Anomaly)
+
+  对于 FIFO 策略，Mem size 增大，page fault 有可能反而变多
+
+  ![](D:\TyporaPictures\OS\108.png)
+
+#### 9.4.3 最优页面置换 MIN
+
+* 置换最长时间不会使用的页面 (farthest-in-the-future)
+
+* Offline 算法，需要提前知道访问序列
+
+* 理论天花板，实际不可能
+
+* 理论实现: 好多实现方式
+
+  ```c++
+  class MINCache : public Cache {
+      private:
+          set<int> s;
+          priority_queue<pair<int, int>> pq; // <index, pagenumber>
+  
+          vector<int> pages;
+          vector<int> nxt;
+  
+      public:
+          MINCache(int size) : Cache(size) {}
+  
+          bool full() override {
+              return s.size()==this->size;
+          }
+  
+          bool contains(int x) override {
+              return s.find(x)!=s.end();
+          }
+  
+          void init(int n) {
+              int pageNum;
+              for (int i=0;i<n;i++) {
+                  cin>>pageNum;
+                  pages.push_back(pageNum);
+                  nxt.push_back(INT_MAX);
+              }
+  
+              map<int, int> temp;
+              for (int i=n-1;i>=0;i--) {
+                  map<int, int>::iterator p=temp.find(pages[i]);
+                  if (p!=temp.end())
+                      nxt[i]=p->second;
+                  temp[pages[i]]=i;
+              }
+          }
+  
+          void insert(int i) override {
+              if (this->contains(pages[i]))
+                  this->hitCount++;
+              else {
+                  if (this->full()) {
+                      auto t=pq.top();
+                      pq.pop();
+                      s.erase(t.second);
+                  }
+  
+                  s.insert(pages[i]);
+              }
+  
+              pq.push(make_pair(nxt[i], pages[i]));
+          }
+  
+          void start() {
+              for (int i=0;i<pages.size();i++)
+                  this->insert(i);
+          }
+  };
+  ```
+
+* 例：`A B C A B D A D B C B`
+
+  ![](D:\TyporaPictures\OS\106.png)
+
+  Page Fault: 5
+
+#### 9.4.4 LRU 页面置换
+
+* 最近最少使用 Least Recently Used
+
+* Replace page that has not been used for the longest time
+
+* 理论实现：双向链表
+
+  * 如果 hit，把他删除然后插回 tail，O(1) 的操作
+  * 没 hit，pop head 然后插到 tail
+  * 就是查询是否 hit 的时候需要遍历链表，不过可以开一个 set 专门用来查询 (空间换时间)
+  * 实际上这个对于硬件来说太复杂了，无法实现
+
+  ```c++
+  class LRUCache : public Cache {
+      private:
+          list<int> lst;
+  
+      public:
+          LRUCache(int size) : Cache(size) {}
+  
+          bool full() override {
+              return lst.size()==this->size;
+          }
+  
+          list<int>::iterator findElement(int x) {
+              return find(lst.begin(), lst.end(), x);
+          }
+  
+          bool contains(int x) override {
+              return this->findElement(x)!=lst.end();
+          }
+  
+          void insert(int x) override {
+              list<int>::iterator it=findElement(x);
+  
+              if (it!=lst.end()) {
+                  this->hitCount++;
+                  lst.erase(it);
+                  lst.push_back(x);
+              }
+              else {
+                  if (this->full())
+                      lst.pop_front();
+                  lst.push_back(x);
+              }
+          }
+  };
+  ```
+
+* 例: `A B C D A B C D A B C D`
+
+  ![](D:\TyporaPictures\OS\107.png)
+
+  Page Fault: 全是
+
+#### 9.4.5 近似 LRU 页面置换
+
+##### 9.4.5.1 时钟算法 Clock Algorithm
+
+* Arrange physical pages in circle with single clock hand
+
+* Hardware "use" bit per physical page
+  * Hardware sets use bit on each reference
+  * If use bit is not set, means not referenced in a long time
+  
+* On page fault
+  * Advance clock hand
+  * Check use bit
+    * 1: used recently; clear (set used bit to 0) and leave alone (go next)
+    * 0: selected candidate for replacement
+  
+* 最差情况：转了一圈，1 全变 0，又回到最开始 (FIFO)
+
+* hit 的时候时针是不转的
+
+* 稳定时，时针永远指向刚被替换的下一个位置
+
+* 理论实现
+
+  ```c++
+  class ClockCache : public Cache {
+      private:
+          vector<pair<int, int>> vec;
+          int ptr=0;
+  
+      public:
+          ClockCache(int size) : Cache(size) {}
+  
+          bool full() override {
+              return vec.size()==this->size;
+          }
+  
+          int findElement(int x) {
+              for (int i=0;i<vec.size();i++)
+                  if (vec[i].first==x) 
+                      return i;
+              return -1;
+          }
+  
+          bool contains(int x) override {
+              return this->findElement(x)>=0;
+          }
+  
+          void insert(int x) override {
+              int index=this->findElement(x);
+  
+              if (index>=0) {
+                  vec[index].second=1;
+                  this->hitCount++;
+              }
+              else {
+                  if (this->full()) {
+                      while (vec[ptr].second!=0) {
+                          vec[ptr].second=0;
+                          ptr=(ptr+1)%this->size;
+                      }
+                      vec[ptr]=make_pair(x, 1);
+                  }
+                  else
+                      vec.push_back(make_pair(x, 1));
+                  ptr=(ptr+1)%this->size;
+              }
+          }
+  };
+  ```
+
+* N^th^ chance algorithm: Used bit 变成一个 counter，从 N 开始倒计
+  * N=1K 比较合适
+  * N 越小越快
+  * Clean pages, use N=1
+  * Dirty pages, use N=2 (and write back to disk when N=1)
+
+##### 9.4.5.2 Second Chance List Algorithm
+
+![](D:\TyporaPictures\OS\109.png)
+
+* Split memory in two list
+  * Active List
+  * Second Chance List
+* Access pages in Active list at full speed
+* Page Fault
+  * Always move overflow page from end of Active list to front of Second chance list (SC) and mark invalid
+  * Desired Page On SC List: move to front of Active list, mark RW
+  * Not on SC list: page in to front of Active list, mark RW; page out LRU victim at end of SC list
+
+---
+
+### 9.5 帧分配 Frame Allocation
+
+#### 9.5.1 全局分配与局部分配
+
+* 全局置换 Global Replacement
+
+  process selects replacement frame from set of all frames; one process can take a frame from another
+
+* 局部置换 Local Replacement
+
+  each process selects from only its own set of allocated frames
+
+#### 9.5.2 分配算法
+
+* Equal Allocation (Fixed Scheme)
+
+  * Every process gets same amount of memory
+  * Example: 100 frames, 5 processes -> each process gets 20 frames
+
+* Proportional Allocation (Fixed Scheme)
+
+  Allocate according to the size of process
+
+  设 $s_i=$ size of process $p_i$
+
+  $S=\sum s_i$
+
+  $m=$ total # of frames
+
+  Allocation for $p_i$ is $a_i=\frac{s_i}{S}\cdot m$
+
+* Priority Allocation
+
+  * Proportional scheme using priorities rather than size
+    * Same type of computation as previous scheme
+  * Possible behavior: If process $p_i$ generates a page fault, select for replacement a frame from a process with lower priority number
+
+---
 
