@@ -14,6 +14,10 @@
 
 Based on *Operating System Concepts Ninth Edition*
 
+2021.5.18 我破防了我受不了这个课件了一点结构性没有我真不知道我该给他放到哪一小节你就不能按1.1 1.1.1 1.2来组织课件吗什么玩意来回蹦跶每张 slide 的题目起的不是太大就是太小我都不知道他该属于书上的哪一节感觉每张都是一个独立的 topic 前后没有一点连接的逻辑性和组织性几张破 ppt 每次都得花三四个小时才给他梳理出来一个大概结构我觉得要是拿这个 ppt 做思维导图怕是当场崩溃
+
+2021.5.19 你破防有啥用？还不是得老老实实写？:sweat_smile:
+
 ---
 
 ## 第三章 进程 Process
@@ -2124,6 +2128,419 @@ Refer to 进程调度 5.1.3 中期调度程序
   * Proportional scheme using priorities rather than size
     * Same type of computation as previous scheme
   * Possible behavior: If process $p_i$ generates a page fault, select for replacement a frame from a process with lower priority number
+
+---
+
+## 第十二章 大容量存储结构
+
+### 12.1 大容量存储结构概述
+
+#### 12.1.1 磁盘 Magnetic Disk (Hard Disk)
+
+![](D:\TyporaPictures\OS\120.png)
+
+* 盘片 Platter
+
+  * 磁道 Track
+
+    每个 track 都有一个编号，一般 0 号指最外侧的 track
+
+    * 扇区 Sector
+
+      Sector 是磁盘存数据的最小 unit
+
+      通常一个 sector 的 size 比一个 block 要小
+
+* 柱面 Cylinder
+
+* 磁臂 Disk Arm
+
+![](D:\TyporaPictures\OS\119.png)
+
+#### 12.1.2 磁盘性能
+
+* 每分钟转数 Rotation Per Minute (RPM)
+
+* 传输速率 Transfer Rate
+
+  驱动器和计算机之间的数据流的速率
+
+* 定位时间 (Positioning Time) 或随机访问时间 (Random Access Time)
+
+  * 寻道时间 Seek Time
+
+    移动磁臂到柱面所需时间
+
+  * 旋转延迟 Rotational Latency
+
+    旋转磁臂到所要扇区所需的时间
+
+* Data R/W Time
+
+  Positioning Time + Transfer Time (transfer a block of bits (sector) under r/w head)
+
+  = Seek Time + Rotational Latency + Transfer Time
+
+* Disk Latency
+
+  Queueing Time + Controller time + Seek Time + Rotation Lantency + Transfer Time
+
+* 例:
+
+  * Assumptions
+
+    * Ignoring queuing and controller times for now
+    * Avg seek time of 5 ms
+    * 7200 RPM: Time for rotation: 60000 (ms/min) / 7200 (rev/min)
+      ~= 8 ms (转一圈 8 ms)
+    * 平均 Rotational Latency 为 0.5 * 8 = 4 ms
+    * Transfer rate of 4 MB/s, sector size of 1 Kbyte
+      $1024 bytes \div 4 × 10^6 (bytes/sec) = 256 × 10^{-6} sec ~= 0.26 ms$
+
+  * Read sector from random place on disk
+
+    Seek Time + Rotational Latency + Transfer Time = 5 + 4 + 0.26 = 9.26 ms
+
+    Approx 10ms to fetch/put data: 100 KByte /sec
+
+  * Read sector from random place in same cylinder
+
+    Rotational Latency + Transfer Time = 4 + 0.26 = 4.26 ms
+
+    Approx 5ms to fetch/put data: 200 KByte /sec
+
+  * Read next sector on same track
+
+    Transfer Time = 0.26 ms
+
+    4 MByte /sec
+
+* Typical Numbers for Magnetic Disk
+
+![](D:\TyporaPictures\OS\121.png)
+
+#### 12.1.2 固态磁盘 Solid State Disk (SSD)
+
+![](D:\TyporaPictures\OS\122.jpg)
+
+---
+
+### 12.2 磁盘调度 Disk Scheduling
+
+* Given a sequence of access pages in the HDD
+
+  * 98, 183, 37, 122, 14, 124, 65, 67
+  * Head point (now): 53
+  * Pages: 0 ~ 199
+
+  How to minimize seek time?
+
+#### 12.2.1 FCFS 调度
+
+First come, first service
+
+![](D:\TyporaPictures\OS\122.png)
+
+Total head movement distance = 640
+
+#### 12.2.2 SSTF 调度
+
+最短寻道时间优先 Shortest-Seek-Time-First
+
+![](D:\TyporaPictures\OS\123.png)
+
+Total distance = 236
+
+* 可能会出现饥饿 (Starvation)
+
+#### 12.2.3 SCAN 调度
+
+* 扫描算法 or 电梯算法 (elevator algorithm)
+* 磁臂从磁盘的一头开始，向另一头移动，在移过每个柱面时处理请求；当到达另一端时，磁头移动方向反转并继续处理
+
+![](D:\TyporaPictures\OS\124.png)
+
+Total distance = 236
+
+#### 12.2.4 C-SCAN 调度
+
+* 循环扫描 (Circular SCAN)
+* 磁头到另一端时，马上回到开头，不处理返回时的请求
+
+![](D:\TyporaPictures\OS\125.png)
+
+Total distance = 382
+
+但是它的 avg wait time 比较小
+
+#### 12.2.5 LOOK 与 C-LOOK 调度
+
+* 聪明点的 SCAN，不走到头了，走到最远的请求
+
+C-LOOK:
+
+![](D:\TyporaPictures\OS\126.png)
+
+Total distance = 350
+
+#### 12.2.6 调度算法的选择
+
+* SSTF is common and has a natural appeal
+* SCAN and C-SCAN perform better for systems that place a heavy load on the disk (less starvation)
+* Either SSTF or LOOK is a reasonable choice for the default algorithm
+* Performance depends on the number and types of requests
+* The disk scheduling algorithm should be written as a separate module of the operating system, allowing it to be replaced with a different algorithm if necessary
+
+---
+
+## 第十三章 I/O 系统
+
+![](D:\TyporaPictures\OS\110.png)
+
+### 13.1 I/O 硬件
+
+![](D:\TyporaPictures\OS\112.jpg)
+
+* 端口 Port
+
+  设备与计算机的通信连接点
+
+  * 数据输入寄存器 Data-in Register
+
+    被主机读出以获取数据
+
+  * 数据输出寄存器 Data-out Register
+
+    被主机写入以发送数据
+
+  * 状态寄存器 Status Register
+
+    包含一些主机可以读取的位，表示一些状态，如当前命令是否已完成
+
+  * 控制寄存器 Control Register
+
+    可由主机写入，以便启动命令或更改设备模式
+
+* 总线 Bus
+
+  一组线路和通过线路传输信息的严格定义的一个协议
+
+  * PCI 总线
+  * 扩展总线 Expansion Bus
+  * SCSI 总线
+    * 小型计算机连接接口 Small Computer System Interface (SCSI)
+
+* 控制器 Controller
+
+  可以操作端口、总线或者设备的一组电子器件
+
+  * 磁盘控制器 Disk Controller
+
+    * 串行高级技术连接 Serial Advanced Technology Attachment (SATA)
+
+  * SCSI 控制器
+
+    主机适配器 Host Adapter 或单独的电路板
+
+以下为课件内容，我实在不知道该放在哪一节了
+
+Operational Parameters for I/O
+
+* Data granularity: Byte vs. Block
+  * Some devices provide single byte at a time (e.g., keyboard)
+  * Others provide whole blocks (e.g., disks, networks, etc.)
+* Access pattern: Sequential vs. Random
+  * Some devices must be accessed sequentially (e.g., tape)
+  * Others can be accessed “randomly” (e.g., disk, cd, etc.)
+    * Fixed overhead to start transfers
+  * Some devices require continual monitoring
+  * Others generate interrupts when they need service
+* Transfer Mechanism: Programmed IO and DMA
+
+---
+
+### 13.2 CPU 访问 I/O 设备
+
+* CPU 与 Contorller 交互
+
+  控制器有一个或多个寄存器，用于数据和控制信号
+
+  处理器通过读写这些寄存器的位模式来与控制器通信
+
+  * I/O Instuction
+
+    通过特殊 IO 指令针对 IO 端口地址传输一个字节或字
+
+    IO 指令触发总线线路，选择适当设备，并将位移入或移出设备寄存器
+
+  * 内存映射 (Memory Mapped) I/O
+
+    设备控制寄存器被映射到处理器的地址空间
+
+    处理器执行 IO 请求是通过标准数据传输指令读写映射到内存的设备控制器
+
+![](D:\TyporaPictures\OS\113.png)
+
+* 例: Memory Mapped Display Controller
+
+  * Hardware maps control registers and display memory into physical address space
+    * Addresses set by HW jumpers or at boot time
+  * Simply writing to display memory (also called the "frame buffer") changes image on screen
+    * Addr: 0x8000F000 — 0x8000FFFF
+  * Writing graphics description to cmd queue
+    * Say enter a set of triangles describing some scene
+    * Addr: 0x80010000 — 0x8001FFFF
+  * Writing to the command register may cause onboard graphics hardware to do something
+    * Say render the above scene
+    * Addr: 0x0007F004
+  * Can protect with address translation
+
+  ![](D:\TyporaPictures\OS\114.png)
+
+---
+
+### 13.3 控制器与 I/O 设备的数据传输
+
+* 程序控制 (Programmed) I/O
+  * Each byte transferred via processor in/out or load/store
+  * Pro: Simple hardware, easy to program
+  * Con: Consumes processor cycles proportional to data size
+* 直接内存访问 Direct Memory Access (DMA)
+  * Give controller access to memory bus
+  * Ask it to transfer data blocks to/from memory directly
+
+![](D:\TyporaPictures\OS\115.jpg)
+
+---
+
+### 13.4 I/O 设备与 CPU 通信
+
+#### 13.4.1 轮询 Polling
+
+* OS periodically checks a device specific status register
+  * I/O device puts completion information in status register
+* Pro: low overhead
+* Con: may waste many cycles on polling if infrequent or unpredictable I/O operations
+
+主机与控制器之间的握手协调：
+
+1. 主机重复读取忙位 (busy bit, 在 status register 里)，直到该位清零
+2. 主机设置命令寄存器的写位，并写出一个字节到数据输入寄存器
+3. 主机设置命令就绪位
+4. 当控制器注意到命令就绪位已设置，则设置忙位
+5. 控制器读取命令寄存器，并看到写命令。它从数据输出寄存器中读取一个字节，并向设备执行 I/O 操作
+6. 控制器清除命令就绪位，清除状态寄存器的故障位表示设备 I/O 成功，清除忙位表示完成
+
+在步骤 1 中，主机一直处于忙等待 (busy waiting) 或轮询 (polling)。在该循环中，一直读取状态寄存器，直到忙位被清除
+
+#### 13.4.2 I/O 中断 I/O Interrupt
+
+* Device generates an interrupt whenever it needs service
+* Pro: handles unpredictable events well
+* Con: interrupts relatively high overhead
+
+CPU 硬件有一条中断请求线 (Interrupt-Request Line, IRL)。CPU 在执行完每条指令后，都会检测 IRL。当 CPU 检测到控制器已在 IRL 上发出了一个信号时，CPU执行状态保存并且跳到内存固定位置的中断处理程序 (Interrupt Handler Routine)。中断处理程序确定中断原因，执行必要处理，执行状态恢复，并且执行返回中断指令以便 CPU 回到中断前的执行状态。
+
+总结：设备控制器通过 IRL 发送信号从而引起 (raise) 中断，CPU捕获 (catch) 中断并且分派 (dispatch) 到中断处理程序，中断处理程序通过处理设备来清除 (clear) 中断。
+
+![](D:\TyporaPictures\OS\116.jpg)
+
+* 中断请求线 IRL: 两条
+
+  * 非屏蔽中断 (Nonmaskable Interrupt)
+
+    保留用于诸如不可恢复的内存错误等事件
+
+  * 可屏蔽中断 (Maskable Interrupt)
+
+    在执行不得中断的关键指令序列之前，它可以由 CPU 关闭。可屏蔽中断可由设备控制器用来请求服务
+
+* 中断向量 Interrupt Vector
+
+  是一个地址，根据这个地址+偏移量来选择特定的中断处理程序
+
+* 中断优先级 Interrupt Priority Level
+
+* Top-half/bottom-half interrupt architecture
+
+  https://stackoverflow.com/questions/45095735/top-halves-and-bottom-halves-concept-clarification
+
+  https://www.tutorialsdaddy.com/uncategorized/top-half-vs-bottom-half/
+
+  * 上半部 Top Half Handler (硬中断)
+
+    快速处理中断，它在中断禁止模式下运行，主要处理跟硬件紧密相关的或时间敏感的工作
+
+  * 下半部 Bottom Half Handler (软中断)
+
+    延迟处理上半部未完成的工作，通常以内核线程的方式运行
+
+* 设备驱动 Device Driver
+
+  http://www.differencebetween.net/technology/difference-between-device-driver-and-device-controller
+
+  Device driver is a specialized software program running as part of the operating system that interacts with a device attached to a computer. It is just a code inside the OS that allows to be empowered with the specific commands needed to operate the associated device. 
+
+  * Supports a standard, internal interface
+  * Same kernel I/O system can interact easily with different device drivers
+  * Special device specific configuration supported with the ioctl system call
+
+### 13.5 I/O 请求生命周期
+
+![](D:\TyporaPictures\OS\117.jpg)
+
+---
+
+### 13.6 I/O 性能
+
+* Response Time or Latency
+
+  Time to perform an operation(s)
+
+  Response Time = Queue + I/O device service time
+
+* Bandwidth or Throughput
+
+  Rate at which operations are performed (op/s)
+
+  * Files: MB/s, Networks: Mb/s, Arithmetic: GFLOP/s
+
+  * Effective BW per op = transfer size / response time
+
+    EffBW(n) = n / (S + n/B) = B / (1 + SB/n)
+
+* Start up or "Overhead"
+
+  Time to initiate an operation
+
+  * Syscall overhead
+  * Operating system processing
+  * Controller Overhead
+  * Device Startup
+    * Mechanical latency for a disk
+    * Media Access + Speed of light + Routing for network
+  * Queuing
+
+* Most I/O operations are roughly linear in $n$ bytes
+
+  $Latency(n) = Overhead + n/ TransferCapacity$
+
+* 例: Fast Network
+
+  ![](D:\TyporaPictures\OS\118.png)
+
+* 影响最大带宽的因素
+
+  * Bus speed
+    * PCI X: 1064 MB/s = 133 MHz x 64 bit (per lane)
+    * ULTRA WIDE SCSI: 40 MB/s
+    * Serial Attached SCSI & Serial ATA & IEEE 1394 ( firewire ): 1.6 Gb/s full duplex (200 MB/s)
+    * USB 3.0: 5 Gb/s
+    * Thunderbolt 3: 40 Gb/s
+  * Device transfer bandwidth
+    * Rotational speed of disk
+    * Write / Read rate of NAND flash
+    * Signaling rate of network link
 
 ---
 
