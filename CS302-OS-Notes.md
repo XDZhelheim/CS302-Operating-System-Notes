@@ -14,10 +14,6 @@
 
 Based on *Operating System Concepts Ninth Edition*
 
-2021.5.18 我破防了我受不了这个课件了一点结构性没有我真不知道我该给他放到哪一小节你就不能按1.1 1.1.1 1.2来组织课件吗什么玩意来回蹦跶每张 slide 的题目起的不是太大就是太小我都不知道他该属于书上的哪一节感觉每张都是一个独立的 topic 前后没有一点连接的逻辑性和组织性几张破 ppt 每次都得花三四个小时才给他梳理出来一个大概结构我觉得要是拿这个 ppt 做思维导图怕是当场崩溃
-
-2021.5.19 你破防有啥用？还不是得老老实实写？:sweat_smile:
-
 ---
 
 ## 第三章 进程 Process
@@ -2128,6 +2124,317 @@ Refer to 进程调度 5.1.3 中期调度程序
   * Proportional scheme using priorities rather than size
     * Same type of computation as previous scheme
   * Possible behavior: If process $p_i$ generates a page fault, select for replacement a frame from a process with lower priority number
+
+---
+
+## 第十 & 十一章  文件系统 File System
+
+### 10.1 文件系统概念
+
+* 文件系统 File System
+
+  Layer of OS that transforms block interface of disks (or other block devices) into Files, Directories, etc.
+
+* 文件系统的功能
+
+  * Naming : Interface to find files by name, not by blocks
+  * Disk Management: Collecting disk blocks into files
+  * Protection: Layers to keep data secure
+  * Reliability/Durability: Keeping of files durable despite crashes, media failures, attacks, etc.
+
+![](D:\TyporaPictures\OS\127.png)
+
+### 10.2 文件和目录 Files and Directories
+
+#### 10.2.1 目录的组成
+
+* 多级继承结构 Hierarchical Structure
+* Each directory entry is a collection of
+  * Files
+  * Directories: A link to another entries
+* Each has a name and attributes
+* Links (hard links) make it a DAG, not just a tree
+
+![](D:\TyporaPictures\OS\128.png)
+
+#### 10.2.2 文件
+
+* 文件 File
+
+  操作系统对存储设备的物理属性加以抽象，从而定义逻辑存储单位
+
+  Named permanent storage
+
+* 文件的组成
+
+  * Data
+
+    Blocks on disk somewhere
+
+  * Metadata (Attributes)
+
+    * Owner, size, last opened, …
+    * Access rights
+      * R, W, X
+      * Owner, Group, Other (in Unix systems)
+      * Access control list in Windows system
+
+### 10.3 磁盘管理策略
+
+* Basic entities on a disk
+
+  * File
+
+    User visible group of blocks arranged sequentially in logical space
+
+  * Directory
+
+    User visible index mapping names to files
+
+* Access disk as linear array of sectors
+
+  * Identify sectors as vectors [cylinder, surface, sector], sort in cylinder major order: **not used anymore**
+  * Logical Block Addressing (LBA): Every sector has integer address from zero up to max number of sectors
+  * Controller translates from address to physical position
+
+* Need way to track free disk blocks
+
+  * Link free blocks together: too slow today
+  * Use bitmap to represent free space on disk
+
+* Need way to structure files: File header
+
+  * Track which blocks belong at which offsets within the logical file structure
+  * Optimize placement of files' disk blocks to match access and usage patterns
+
+### 10.4 目录分配
+
+#### 10.4.1 连续分配 Contiguous Allocation
+
+* 连续分配方法要求每个文件在磁盘上占有一组连续的块。磁盘地址为磁盘定义了一个线性排序。有了这个排序，假设只有一个作业正在访问磁盘，在块 b 之后访问块 b+1 时通常不需要移动磁头。当需要磁头移动（从一个柱面的最后扇区到下一个柱面的第一个扇区时），只需要移动一个磁道
+
+* Locate Files
+
+  Start address and size -> easy to random access
+
+  ![](D:\TyporaPictures\OS\129.png)
+
+* Delete Files
+
+  ![](D:\TyporaPictures\OS\130.png)
+
+* 缺点：外碎片 External Fragmentation
+
+  ![](D:\TyporaPictures\OS\131.png)
+
+* 缺点：无法应对文件增长 File Growth Problem
+
+  ![](D:\TyporaPictures\OS\132.png)
+
+* 连续分配的应用
+
+  * ISO 9960
+  * CD-ROM
+
+#### 10.4.2 链接分配 Linked Allocation
+
+1. Chop the storage device into equal sized blocks
+
+   ![](D:\TyporaPictures\OS\133.png)
+
+2. Fill the empty space in a block by block manner
+
+   ![](D:\TyporaPictures\OS\134.png)
+
+3. Leave 4 bytes from each block as the pointer
+
+   ![](D:\TyporaPictures\OS\135.png)
+
+4. Keep the file size in the root directory table
+
+   ![](D:\TyporaPictures\OS\136.png)
+
+* 缺点：内碎片 Internal Fragmentation
+
+  The last block of a file may not be fully filled
+
+* 缺点：随机访问性能差
+
+  What if I want to access the 2019 th block of ubuntu.iso?
+
+  You have to access blocks 1 2018 of ubuntu.iso until the 2019-th block.
+
+* 优点
+
+  * 没有外碎片
+  * 解决了文件增长的问题
+
+### 10.5 文件分配表 FAT
+
+#### 10.5.1 FAT 的原理
+
+* 文件分配表 File Allocation Table
+
+  Centralize all the block links as FAT
+
+  ![](D:\TyporaPictures\OS\137.png)
+
+* FAT 相当于一个 next 数组
+
+  ![](D:\TyporaPictures\OS\138.png)
+
+  ![](D:\TyporaPictures\OS\139.png)
+
+#### 10.5.2 FAT 文件系统的大小
+
+![](D:\TyporaPictures\OS\140.png)
+
+* 在 DOS 里 block 被称为 cluster
+
+* 假设 block size = 32 KB，那么对于 FAT32 来说，它支持的文件总大小为
+
+  32 * 2^10^ * 2^28^ = 2^43^ = 8 TB
+
+* 然而，微软为了催人用 NTFS，手动把 FAT 文件系统大小的上限设为了 32 GB
+
+  如果你有一个 64 GB 的 U 盘，在 FAT 文件系统下你最多只能往里存 32 GB
+
+* 但是你可以不用微软的工具格式化，用别的手段把它格式化成 FAT 就没有这个限制了
+
+#### 10.5.3 FAT 文件系统总览
+
+![](D:\TyporaPictures\OS\141.png)
+
+#### 10.5.4 FAT 文件遍历
+
+例: `dir c:\windows`
+
+![](D:\TyporaPictures\OS\142.png)
+
+* 为什么是 cluster 2
+
+  因为 FAT32 最后 4 个 bit 是保留位，所以 root 是第 2 (16 进制) 个 cluster
+
+![](D:\TyporaPictures\OS\143.png)
+
+#### 10.5.5 FAT Directory Entry
+
+* A 32 byte directory entry in a directory file
+* A directory entry is describing a file (or a sub directory) under a particular directory
+
+![](D:\TyporaPictures\OS\144.png)
+
+* 文件名被规范成了 8+3 的格式
+
+* FAT32 的最大文件大小
+
+  4G - 1 bytes
+
+![](D:\TyporaPictures\OS\145.png)
+
+* 长文件名 Long File Name (LFN) Directory Entry
+
+![](D:\TyporaPictures\OS\146.png)
+
+* Normal directory entry vs LFN directory entry
+
+![](D:\TyporaPictures\OS\147.png)
+
+![](D:\TyporaPictures\OS\148.png)
+
+![](D:\TyporaPictures\OS\149.png)
+
+* Directory entry is important
+
+  * It stores the start cluster number.
+
+  * It stores the file size
+
+    Without the file size, how can you know when you should stop reading a cluster?
+
+  * It stores all file attributes
+
+#### 10.5.6 FAT 读文件
+
+例: 顺序读取 `C:\windows\gamedata.dat`
+
+![](D:\TyporaPictures\OS\150.png)
+
+
+
+![](D:\TyporaPictures\OS\151.png)
+
+#### 10.5.7 FAT 写文件
+
+例: 向 `C:\windows\gamedata.dat` 写入数据
+
+![](D:\TyporaPictures\OS\152.png)
+
+
+
+![](D:\TyporaPictures\OS\153.png)
+
+
+
+![](D:\TyporaPictures\OS\154.png)
+
+
+
+![](D:\TyporaPictures\OS\155.png)
+
+#### 10.5.8 FAT 删除文件
+
+例: 删除 `C:\windows\gamedata.dat`
+
+![](D:\TyporaPictures\OS\156.png)
+
+
+
+![](D:\TyporaPictures\OS\157.png)
+
+* 实际上数据还在硬盘中，直到 de-allocated 的 cluster 被再次使用（覆盖）
+
+* 所以会产生安全问题，如果删除的数据还没被覆盖，就能通过其他手段获取
+
+* Secure Disk Erase
+
+  一种简单的办法是把释放出的 cluster 直接全写成 0
+
+* 数据恢复
+
+  既然还在硬盘里，就可以在没被覆盖之前恢复
+
+  首先要抓紧拔电源，然后拿下硬盘
+
+  ![](D:\TyporaPictures\OS\158.png)
+
+#### 10.5.9 总结
+
+* Space efficient:
+
+  * 4 bytes overhead (FAT entry) per data cluster.
+
+* Delete
+
+  * Lazy delete efficient
+
+  * Insecure
+
+    designed for single user 20+ years ago
+
+* Deployment: (FAT32 and FAT12)
+
+  It is everywhere: CF cards, SD cards, USB drives
+
+* Search
+
+  * Block addresses of a file may scatter discontinuously
+
+  * To locate the 888 th block of a file?
+
+    Start from the first FAT entry and follow 888 pointers
+
+* The most commonly used file system in the world
 
 ---
 
