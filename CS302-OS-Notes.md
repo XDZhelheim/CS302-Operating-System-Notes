@@ -2144,6 +2144,8 @@ Refer to 进程调度 5.1.3 中期调度程序
 
 ![](D:\TyporaPictures\OS\127.png)
 
+---
+
 ### 10.2 文件和目录 Files and Directories
 
 #### 10.2.1 目录的组成
@@ -2179,6 +2181,8 @@ Refer to 进程调度 5.1.3 中期调度程序
       * Owner, Group, Other (in Unix systems)
       * Access control list in Windows system
 
+---
+
 ### 10.3 磁盘管理策略
 
 * Basic entities on a disk
@@ -2206,6 +2210,8 @@ Refer to 进程调度 5.1.3 中期调度程序
 
   * Track which blocks belong at which offsets within the logical file structure
   * Optimize placement of files' disk blocks to match access and usage patterns
+
+---
 
 ### 10.4 目录分配
 
@@ -2269,6 +2275,26 @@ Refer to 进程调度 5.1.3 中期调度程序
   * 没有外碎片
   * 解决了文件增长的问题
 
+#### 10.4.3 索引分配 Index Allocation
+
+* 索引分配通过将所有指针放在一起，即索引块 (Index Block)，实现了高校的随机访问
+
+* 索引块的组织方式
+
+  * 链接方案
+
+    一个索引块通常为一个磁盘块，本身可以读写，通过链表的形式存放大文件
+
+  * 多级索引
+
+    通过第一级索引块指向一组第二级索引块，它又指向文件块
+
+  * 组合方案
+
+    iNode
+
+---
+
 ### 10.5 文件分配表 FAT
 
 #### 10.5.1 FAT 的原理
@@ -2301,7 +2327,7 @@ Refer to 进程调度 5.1.3 中期调度程序
 
 * 但是你可以不用微软的工具格式化，用别的手段把它格式化成 FAT 就没有这个限制了
 
-#### 10.5.3 FAT 文件系统总览
+#### 10.5.3 FAT 文件系统结构
 
 ![](D:\TyporaPictures\OS\141.png)
 
@@ -2435,6 +2461,279 @@ Refer to 进程调度 5.1.3 中期调度程序
     Start from the first FAT entry and follow 888 pointers
 
 * The most commonly used file system in the world
+
+---
+
+### 10.6 iNode
+
+#### 10.6.1 iNode 的原理
+
+* All pointers of a file are located together
+* One directory/file has one iNode
+
+![](D:\TyporaPictures\OS\159.png)
+
+* iNode Table
+
+  An array of iNodes
+
+* Pointers are unbalanced tree based
+
+![](D:\TyporaPictures\OS\160.png)
+
+![](D:\TyporaPictures\OS\161.png)
+
+![](D:\TyporaPictures\OS\162.jpg)
+
+#### 10.6.2 iNode 的结构
+
+* iNode Metadata
+
+  ![](D:\TyporaPictures\OS\163.jpg)
+
+* 12 direct pointers
+
+  ![](D:\TyporaPictures\OS\164.png)
+
+* Indirect Pointers
+
+  一个 pointer 4 个 bytes (实际上就是个 32 bit 的地址)
+
+  ![](D:\TyporaPictures\OS\165.png)
+
+![](D:\TyporaPictures\OS\167.png)
+
+#### 10.6.3 iNode 文件大小
+
+![](D:\TyporaPictures\OS\166.png)
+
+---
+
+### 10.7 可扩展文件系统 Ext
+
+* Extended File System
+* The latest default FS for Linux distribution is the Fourth Extended File System, Ext4 for short.
+* 基于 iNode
+
+#### 10.7.1 Ext 文件系统的大小
+
+* For Ext2 & Ext3:
+  * Block size: 1,024, 2,048, or 4,096 bytes.
+  * Block address size: 4 bytes => # of block addresses = 2^32^
+
+![](D:\TyporaPictures\OS\168.png)
+
+#### 10.7.2 Ext 文件系统结构
+
+* The file system is divided into block groups and every block group has the same structure
+
+![](D:\TyporaPictures\OS\169.png)
+
+* Block Group 的结构
+
+![](D:\TyporaPictures\OS\170.png)
+
+* Block Bitmap & iNode Bitmap
+
+  * Block bitmap tells which block is allocated
+
+  * iNode Bitmap
+
+    A bit string that represents if an iNode (index node) is allocated or not
+
+    Implies that the number of files in the file system is **fixed**
+
+![](D:\TyporaPictures\OS\171.png)
+
+* Block Group 的优点
+
+  * Performance: spatial locality
+
+    Group iNodes and data blocks of related files together
+
+  * Reliability
+
+    Superblock and GDT are replicated in each block group
+
+    可以互相校验
+
+* 磁盘管理
+
+  Disk divided into block groups
+
+  * Each group has two block sized bitmaps (free blocks/ inodes)
+  * Block sizes settable at format time: 1K, 2K, 4K, 8K…
+  * Provides locality
+
+  例: 在 `/dir1/` 目录下创建 `file1.dat`
+
+  ![](D:\TyporaPictures\OS\172.png)
+
+#### 10.7.3 Ext 的 iNode 结构
+
+![](D:\TyporaPictures\OS\173.png)
+
+#### 10.7.4 Ext 删除文件
+
+![](D:\TyporaPictures\OS\174.png)
+
+![](D:\TyporaPictures\OS\175.png)
+
+#### 10.7.5 硬链接 Hard Link
+
+* A hard link is a directory entry pointing to the iNode of an existing file
+
+  That file can accessed through two different pathnames
+
+  例: `ln /home/csbtang/dir1/12.jpg /tmp/mylink`
+
+  ![](D:\TyporaPictures\OS\176.png)
+
+* 例: `/` 下有 20 个目录，`/` 有多少硬链接
+
+  * 20 sub directories: they have link `..`
+
+  * Root directory: `.` and `..` pointing to itself
+
+    根目录比较特殊：`..` 指向自己，因为它没有上级目录
+
+  * 20 + 2 = 22 hard links
+
+  ![](D:\TyporaPictures\OS\177.png)
+
+* 删除硬链接
+
+  ![](D:\TyporaPictures\OS\178.png)
+
+  就是把链接的 iNode 的 link count --，当 = 0 的时候就会被 deallocate
+
+#### 10.7.6 符号链接 (软链接) Symbolic (Soft) Link
+
+* A symbolic link creates a new iNode
+
+  例: `ln -s /home/csbtang /dir1/12.jpg /tmp/mylink`
+
+  ![](D:\TyporaPictures\OS\179.png)
+
+* Symbolic link is pointing to a new iNode whose target's **pathname** are stored using the space originally designed for 12 direct block and the 3 indirect block pointers if the pathname is shorter than 60 characters
+
+  Use back a normal iNode + one direct data block to hold the long pathname otherwise
+
+  ![](D:\TyporaPictures\OS\180.png)
+
+  软链接的 iNode 把本来存 pointer 的位置用来存链接到的文件的路径，如果路径大于 60 bytes 就再用一个 direct block 存
+
+* 硬链接和软链接比较
+
+  * Hard link
+    * Sets another directory entry to contain the file number for the file
+    * Creates another name (path) for the file
+    * Each is "first class"
+  * Soft link or Symbolic Link
+    * Directory entry contains the path and name of the file
+    * Map one name to another name
+
+  ![](D:\TyporaPictures\OS\181.png)
+
+---
+
+### 10.8 NTFS
+
+* New Technology File System (NTFS)
+
+  Default on Microsoft Windows systems
+
+* Variable length extents
+
+* Everything (almost) is a sequence of `<attribute: value>` pairs
+
+* Mix direct and indirect freely
+
+* Directories organized in B-tree structure by default
+
+#### 10.8.1 NTFS 文件系统结构
+
+* Master File Table
+
+  * Database with flexible 1KB entries for metadata/data
+  * Variable sized attribute records (data or metadata)
+  * Extend with variable depth tree (non resident)
+
+* Extents
+
+  Variable length contiguous regions
+
+  * Block pointers cover runs of blocks
+  * Similar approach in Linux (ext4)
+  * File create can provide hint as to size of file
+
+* Journaling for reliability 日志记录
+
+![](D:\TyporaPictures\OS\182.gif)
+
+#### 10.8.2 NTFS 文件存储
+
+* 小文件
+
+  ![](D:\TyporaPictures\OS\182.png)
+
+  直接把数据存在 MFT Entry 里，不需要 data block
+
+* 中文件
+
+  ![](D:\TyporaPictures\OS\183.png)
+
+* 大文件
+
+  ![](D:\TyporaPictures\OS\184.png)
+
+---
+
+### 10.9 内存映射文件 Memory Mapped File
+
+* 定义
+
+  A memory-mapped file contains the contents of a file in virtual memory. This mapping between a file and memory space enables an application, including multiple processes, to modify the file by reading and writing directly to the memory
+
+* Traditional I/O involves explicit transfers between buffers in process address space to/from regions of a file
+
+  This involves multiple copies into caches in memory, plus system calls
+
+* Map the file directly into an empty region of our address space
+
+  * Implicitly "page it in" when we read it
+  * Write it and "eventually" page it out
+
+* Executable files are treated this way when we `exec` the process
+
+![](D:\TyporaPictures\OS\185.png)
+
+---
+
+### 10.10 文件系统总结
+
+* File System
+  * Transforms blocks into Files and Directories
+  * Optimize for size, access and usage patterns
+  * Maximize sequential access, allow efficient random access
+* File defined by header, called iNode
+* Naming: translating from user visible names to actual sys resources
+  * Directories used for naming for local file systems
+  * Linked or tree structure stored in files
+* Multilevel Indexed Scheme
+  * iNode contains file info, direct pointers to blocks, indirect blocks, doubly indirect, etc..
+  * NTFS: variable extents not fixed blocks, tiny files data is in header
+* File Allocation Table (FAT) Scheme
+  * Linked list approach
+  * Very widely used: Cameras, USB drives, SD cards
+  * Simple to implement, but poor performance and no security
+* 4.2 BSD Multilevel index files
+  * iNode contains pointers to actual blocks, indirect blocks, double indirect blocks, etc.
+  * Optimizations for sequential access: start new files in open ranges of free blocks, rotational optimization
+* File layout driven by freespace management
+  * Integrate freespace , iNode table, file blocks and dirs into block group
+* Deep interactions between memory management, file system, sharing
+  * `mmap()`: map file or anonymous segment to memory
 
 ---
 
@@ -2851,3 +3150,6 @@ CPU 硬件有一条中断请求线 (Interrupt-Request Line, IRL)。CPU 在执行
 
 ---
 
+## END
+
+![](D:\TyporaPictures\OS\186.png)
