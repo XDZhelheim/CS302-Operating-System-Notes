@@ -889,7 +889,7 @@ void unlock(int process) {
   ```
   turn=别人;
   while (turn==别人们 && interested[别人们]);
-  // while ((turn==x || turn==y) && (interested[x] || interested[y]))
+  // while ((turn==x && interested[x]) || (turn==y && interested[y]))
   // while (turn!=自己 && interested[别人们])
   ```
 
@@ -1335,7 +1335,7 @@ do {
 
   Ability to translate accesses from one address space (virtual) to a different one (physical)
 
-#### 8.2.2 地址绑定 Address Binding
+#### 8.1.2 地址绑定 Address Binding
 
 源程序中的地址通常是用符号表示 (如变量 `count`)。编译器通常将这些符号地址绑定 (bind) 到可重定位的地址 (如“从本模块开始的第 14 字节”)。链接程序或加载程序再将这些可重定位的地址绑定到绝对地址 (如 74014)。每次绑定都是一个从一个地址空间到另一个地址空间的映射。
 
@@ -1359,7 +1359,7 @@ do {
 
   大多数通用 OS 采用
 
-#### 8.2.3 逻辑地址空间与物理地址空间
+#### 8.1.3 逻辑地址空间与物理地址空间
 
 * 逻辑地址 Logical Address = 虚拟地址 Virtual Address
 
@@ -1381,12 +1381,12 @@ do {
 
 ![](D:\TyporaPictures\OS\85.png)
 
-#### 8.2.4 动态加载 Dynamic Loading
+#### 8.1.4 动态加载 Dynamic Loading
 
 * 一个进程的整个程序和数据如果都必须处于物理内存中，则进程的大小受物理内存大小的限制
 * 为了获得更好的内存空间使用率，使用动态加载（Dynamic Loading），即一个程序只有在调用时才被加载
 
-#### 8.2.5 动态链接与共享库
+#### 8.1.5 动态链接与共享库
 
 * 动态链接的概念与动态加载相似。只是这里不是将加载延迟到运行时，而是将链接延迟到运行时。这一特点通常用于系统库，如语言子程序库。没有这一点，系统上的所有程序都需要一份语言库的副本，这一需求浪费了磁盘空间和内存空间。
 
@@ -2266,9 +2266,9 @@ Refer to 进程调度 5.1.3 中期调度程序
 
 * 缺点：随机访问性能差
 
-  What if I want to access the 2019 th block of ubuntu.iso?
+  What if I want to access the 2019-th block of ubuntu.iso?
 
-  You have to access blocks 1 2018 of ubuntu.iso until the 2019-th block.
+  You have to access blocks 1~2018 of ubuntu.iso until the 2019-th block.
 
 * 优点
 
@@ -2277,7 +2277,7 @@ Refer to 进程调度 5.1.3 中期调度程序
 
 #### 10.4.3 索引分配 Index Allocation
 
-* 索引分配通过将所有指针放在一起，即索引块 (Index Block)，实现了高校的随机访问
+* 索引分配通过将所有指针放在一起，即索引块 (Index Block)，实现了高效的随机访问
 
 * 索引块的组织方式
 
@@ -2339,7 +2339,6 @@ Refer to 进程调度 5.1.3 中期调度程序
 
 * 为什么是 cluster 2
 
-  因为 FAT32 最后 4 个 bit 是保留位，所以 root 是第 2 (16 进制) 个 cluster
 
 ![](D:\TyporaPictures\OS\143.png)
 
@@ -2456,7 +2455,7 @@ Refer to 进程调度 5.1.3 中期调度程序
 
   * Block addresses of a file may scatter discontinuously
 
-  * To locate the 888 th block of a file?
+  * To locate the 888-th block of a file?
 
     Start from the first FAT entry and follow 888 pointers
 
@@ -3089,7 +3088,7 @@ CPU 硬件有一条中断请求线 (Interrupt-Request Line, IRL)。CPU 在执行
 
   * Supports a standard, internal interface
   * Same kernel I/O system can interact easily with different device drivers
-  * Special device specific configuration supported with the ioctl system call
+  * Special device specific configuration supported with the `ioctl` system call
 
 ### 13.5 I/O 请求生命周期
 
