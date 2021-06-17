@@ -1510,8 +1510,10 @@ Refer to 进程调度 5.1.3 中期调度程序
 
   在 CPU 里
 
-  段表的每个条目包含:
+  每个进程都有一个
 
+  段表的每个条目包含:
+  
   * 段基地址 Segment Base
   * 段界限 Segment Limit
   * Valid bit
@@ -1575,6 +1577,7 @@ Refer to 进程调度 5.1.3 中期调度程序
   * 物理内存基地址
   * Valid bit, read, write ...
 * 在内存里
+* 每个进程一个
 
 ![](D:\TyporaPictures\OS\93.png)
 
@@ -1773,6 +1776,10 @@ Refer to 进程调度 5.1.3 中期调度程序
     * Load new page into memory from disk
     * Update page table entry, invalidate TLB for new entry
     * Continue thread from original faulting location
+
+  ![](D:\TyporaPictures\OS\187.png)
+
+  ![](D:\TyporaPictures\OS\188.png)
 
 * OS 如何拿到一个空闲帧
 
@@ -2239,7 +2246,7 @@ Refer to 进程调度 5.1.3 中期调度程序
 
 * 连续分配的应用
 
-  * ISO 9960
+  * ISO 9660
   * CD-ROM
 
 #### 10.4.2 链接分配 Linked Allocation
